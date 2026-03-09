@@ -107,9 +107,9 @@ def render_standard_pricing() -> dict:
             ) / 100
         with c2:
             cc_rate = st.number_input(
-                "CC Base Rate %", min_value=1.99, max_value=3.50,
-                value=2.55, step=0.05, key="std_cc",
-                help="Q4 avg non-AMEX: 3.26% total. Model adds 0.53% fixed, so base input = 2.55%",
+                "CC Base Rate %", min_value=1.50, max_value=3.50,
+                value=2.055, step=0.05, key="std_cc",
+                help="Q4 avg non-AMEX base rate. Model adds 0.53% fixed component.",
             ) / 100
             amex_rate = st.number_input(
                 "AMEX Rate %", min_value=2.50, max_value=4.0,
