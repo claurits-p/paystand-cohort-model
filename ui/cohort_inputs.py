@@ -24,8 +24,8 @@ def render_cohort_inputs() -> dict:
 
     with c2:
         avg_saas_arr = st.number_input(
-            "Avg SaaS ARR List ($/deal)", min_value=0.0,
-            value=26_933.0, step=1000.0, format="%.0f",
+            "Avg ACV ($/deal)", min_value=0.0,
+            value=38_000.0, step=1000.0, format="%.0f",
         )
         avg_impl_fee = st.number_input(
             "Avg Implementation Fee ($/deal)", min_value=0.0,
@@ -63,7 +63,7 @@ def render_cohort_inputs() -> dict:
     with w1:
         win_rate_increase = st.slider(
             "Target Win Rate Increase",
-            min_value=0, max_value=15, value=5, step=1,
+            min_value=0, max_value=15, value=10, step=1,
             format="%d%%",
             help="The model will adjust SaaS discount (and other levers if needed) "
                  "to achieve this win rate increase over standard pricing.",
