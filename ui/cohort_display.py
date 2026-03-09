@@ -235,10 +235,14 @@ def render_per_deal_comparison(
 
     y1_saas_loss = ltv.per_deal_yearly[1].saas_revenue - std.per_deal_yearly[1].saas_revenue
     y1_rev_delta = ltv.per_deal_yearly[1].total_revenue - std.per_deal_yearly[1].total_revenue
-    st.caption(
-        f"Per deal, Y1 SaaS drops by ${y1_saas_loss:+,.0f} due to higher discount, "
-        f"but per-deal total revenue {'increases' if y1_rev_delta > 0 else 'decreases'} by "
-        f"${y1_rev_delta:+,.0f} from processing/float. "
-        f"At cohort scale, LTV wins {ltv.deals_won - std.deals_won} more deals, "
-        f"multiplying the processing upside."
+    direction = "increases" if y1_rev_delta > 0 else "decreases"
+    deal_delta = ltv.deals_won - std.deals_won
+    st.markdown(
+        f'<p style="color:#6c757d;font-size:0.85rem;">'
+        f'Per deal, Y1 SaaS drops by <b>${y1_saas_loss:+,.0f}</b> due to higher discount, '
+        f'but per-deal total revenue {direction} by '
+        f'<b>${y1_rev_delta:+,.0f}</b> from processing/float. '
+        f'At cohort scale, LTV wins <b>{deal_delta} more deals</b>, '
+        f'multiplying the processing upside.</p>',
+        unsafe_allow_html=True,
     )

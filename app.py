@@ -61,8 +61,17 @@ def main():
                 quarterly_churn=cohort["quarterly_churn"],
             )
 
+        _BOX_BLUE = (
+            '<div style="padding:12px 16px;background:#e8f4fd;border-left:4px solid #1B6AC9;'
+            'border-radius:4px;margin-bottom:8px;color:#1B6AC9;font-size:0.95rem;">'
+        )
+        _BOX_WARN = (
+            '<div style="padding:12px 16px;background:#fff8e1;border-left:4px solid #f0a500;'
+            'border-radius:4px;margin-bottom:8px;color:#7a5900;font-size:0.95rem;">'
+        )
+
         if solver_msg:
-            st.warning(solver_msg)
+            st.markdown(f'{_BOX_WARN}{solver_msg}</div>', unsafe_allow_html=True)
 
         if ltv.lever_changes:
             changes_parts = []
@@ -74,7 +83,11 @@ def main():
                     changes_parts.append(f"{label}: ${old:.2f} → ${new:.2f}")
                 else:
                     changes_parts.append(f"{label}: {old} → {new}")
-            st.info("**Pricing adjustments to reach target:** " + " | ".join(changes_parts))
+            st.markdown(
+                f'{_BOX_BLUE}<b>Pricing adjustments to reach target:</b> '
+                + " | ".join(changes_parts) + '</div>',
+                unsafe_allow_html=True,
+            )
 
         st.divider()
         render_insight_callouts(standard, ltv)

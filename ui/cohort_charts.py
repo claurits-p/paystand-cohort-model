@@ -98,39 +98,48 @@ def render_margin_bars(
 def render_revenue_composition(
     std: CohortScenario, ltv: CohortScenario,
 ) -> None:
-    """Stacked bar showing revenue mix for both scenarios (3-year total)."""
-    st.markdown("**3-Year Revenue Composition**")
+    """Stacked bar showing revenue mix by year for both scenarios side by side."""
+    st.markdown("**Revenue Composition by Year**")
 
     categories = ["SaaS", "CC", "ACH", "Float", "Impl Fee"]
-
-    def _totals(s: CohortScenario) -> list[float]:
-        return [
-            sum(s.cohort_yearly[y].saas_revenue for y in [1, 2, 3]),
-            sum(s.cohort_yearly[y].cc_revenue for y in [1, 2, 3]),
-            sum(s.cohort_yearly[y].ach_revenue for y in [1, 2, 3]),
-            sum(s.cohort_yearly[y].float_income for y in [1, 2, 3]),
-            sum(s.cohort_yearly[y].impl_fee_revenue for y in [1, 2, 3]),
-        ]
-
-    std_vals = _totals(std)
-    ltv_vals = _totals(ltv)
     colors = ["#3498DB", "#1B6AC9", "#2980B9", "#1ABC9C", "#95A5A6"]
+
+    def _year_vals(s: CohortScenario, y: int) -> list[float]:
+        cy = s.cohort_yearly[y]
+        return [cy.saas_revenue, cy.cc_revenue, cy.ach_revenue,
+                cy.float_income, cy.impl_fee_revenue]
+
+    x_labels = [
+        "Std Y1", "LTV Y1",
+        "Std Y2", "LTV Y2",
+        "Std Y3", "LTV Y3",
+    ]
+
+    all_vals: list[list[float]] = []
+    for y in (1, 2, 3):
+        all_vals.append(_year_vals(std, y))
+        all_vals.append(_year_vals(ltv, y))
 
     fig = go.Figure()
     for i, cat in enumerate(categories):
+        y_vals = [bar[i] for bar in all_vals]
+        texts = [f"${v:,.0f}" if v > 50_000 else "" for v in y_vals]
         fig.add_trace(go.Bar(
-            x=["Standard", "LTV Optimized"],
-            y=[std_vals[i], ltv_vals[i]],
+            x=x_labels, y=y_vals,
             name=cat, marker_color=colors[i],
-            text=[f"${std_vals[i]:,.0f}", f"${ltv_vals[i]:,.0f}"],
-            textposition="inside", textfont=dict(color="white", size=10),
+            text=texts, textposition="inside",
+            textfont=dict(color="white", size=9),
         ))
 
     fig.update_layout(
         barmode="stack", yaxis=dict(tickformat="$,.0f"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=50, b=40), height=420,
+        margin=dict(t=50, b=40), height=450,
     )
+
+    for x_pos in [1.5, 3.5]:
+        fig.add_vline(x=x_pos, line_dash="dot", line_color="#ccc", line_width=1)
+
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -179,20 +188,38 @@ def render_insight_callouts(
         for y in [2, 3]
     )
 
+    BOX = (
+        '<div style="padding:12px 16px;background:#e8f4fd;border-left:4px solid #1B6AC9;'
+        'border-radius:4px;margin-bottom:8px;color:#1B6AC9;font-size:0.95rem;">'
+    )
+    BOX_GREEN = (
+        '<div style="padding:12px 16px;background:#e8f8ef;border-left:4px solid #2ECC71;'
+        'border-radius:4px;margin-bottom:8px;color:#1a6e3a;font-size:0.95rem;">'
+    )
+
     if deal_delta > 0:
-        st.success(
-            f"LTV pricing wins **{deal_delta} more deals** "
-            f"({ltv.deals_won} vs {std.deals_won}) from the same {std.deals_won + deal_delta + (std.deals_won + deal_delta - ltv.deals_won)} pipeline."
+        st.markdown(
+            f'{BOX_GREEN}LTV pricing wins <b>{deal_delta} more deals</b> '
+            f'({ltv.deals_won} vs {std.deals_won}) from the same pipeline.</div>',
+            unsafe_allow_html=True,
         )
 
+    y1_saas_str = f"{y1_saas_delta:+,.0f}"
+    y23_margin_str = f"{y23_margin_delta:+,.0f}"
+    net_margin_str = f"{margin_delta:+,.0f}"
+
     if y1_saas_delta < 0 and y23_margin_delta > 0:
-        st.info(
-            f"Year 1 SaaS trade-off: **${y1_saas_delta:+,.0f}** | "
-            f"Years 2-3 margin recovery: **${y23_margin_delta:+,.0f}** | "
-            f"Net 3-year margin impact: **${margin_delta:+,.0f}**"
+        st.markdown(
+            f'{BOX}Year 1 SaaS trade-off: <b>${y1_saas_str}</b> &nbsp;|&nbsp; '
+            f'Years 2–3 margin recovery: <b>${y23_margin_str}</b> &nbsp;|&nbsp; '
+            f'Net 3-year margin impact: <b>${net_margin_str}</b></div>',
+            unsafe_allow_html=True,
         )
     else:
-        st.info(f"Net 3-year margin impact: **${margin_delta:+,.0f}**")
+        st.markdown(
+            f'{BOX}Net 3-year margin impact: <b>${net_margin_str}</b></div>',
+            unsafe_allow_html=True,
+        )
 
     std_processing_pct = sum(
         std.cohort_yearly[y].cc_revenue + std.cohort_yearly[y].ach_revenue
@@ -204,7 +231,8 @@ def render_insight_callouts(
         for y in [1, 2, 3]
     ) / ltv.three_year_revenue * 100 if ltv.three_year_revenue > 0 else 0
 
-    st.info(
-        f"Revenue diversification: Processing makes up **{ltv_processing_pct:.0f}%** "
-        f"of LTV revenue vs **{std_processing_pct:.0f}%** for Standard"
+    st.markdown(
+        f'{BOX}Revenue diversification: Processing makes up <b>{ltv_processing_pct:.0f}%</b> '
+        f'of LTV revenue vs <b>{std_processing_pct:.0f}%</b> for Standard</div>',
+        unsafe_allow_html=True,
     )

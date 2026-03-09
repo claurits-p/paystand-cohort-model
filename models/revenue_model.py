@@ -104,6 +104,7 @@ def compute_yearly_revenue(
     vol: VolumeForecastYear,
     pricing: PricingScenario,
     costs: YearlyCosts,
+    include_float: bool = True,
 ) -> YearlyRevenue:
     """Compute revenue for a single year."""
     saas_rev = _saas_arr_for_year(pricing, vol.year)
@@ -115,13 +116,14 @@ def compute_yearly_revenue(
     ach_rev = _ach_revenue_for_volume(vol.ach, vol.ach_txn_count, pricing)
     bank_rev = 0.0
 
-    daily_rate = cfg.FLOAT_ANNUAL_RATE / 365
-    cal = cfg.FLOAT_CALENDAR_FACTOR
-
-    cc_float = vol.cc * daily_rate * pricing.hold_days_cc * cal
-    ach_float = vol.ach * daily_rate * pricing.hold_days_ach * cal
-    bank_float = vol.bank_network * daily_rate * pricing.hold_days_bank * cal
-    float_income = cc_float + ach_float + bank_float
+    float_income = 0.0
+    if include_float:
+        daily_rate = cfg.FLOAT_ANNUAL_RATE / 365
+        cal = cfg.FLOAT_CALENDAR_FACTOR
+        cc_float = vol.cc * daily_rate * max(pricing.hold_days_cc - 1, 0) * cal
+        ach_float = vol.ach * daily_rate * max(pricing.hold_days_ach - 1, 0) * cal
+        bank_float = vol.bank_network * daily_rate * max(pricing.hold_days_bank - 1, 0) * cal
+        float_income = cc_float + ach_float + bank_float
 
     total_rev = saas_rev + impl_rev + cc_rev + ach_rev + bank_rev + float_income
     margin = total_rev - costs.total
@@ -145,6 +147,7 @@ def compute_yearly_revenue(
 def compute_three_year_financials(
     volumes: dict[int, VolumeForecastYear],
     pricing: PricingScenario,
+    include_float: bool = True,
 ) -> dict[int, YearlyRevenue]:
     """Full 3-year financial projection for a pricing scenario."""
     results: dict[int, YearlyRevenue] = {}
@@ -152,5 +155,5 @@ def compute_three_year_financials(
         vol = volumes[year]
         saas_for_cost = _saas_arr_for_year(pricing, year)
         costs = compute_yearly_costs(vol, saas_for_cost)
-        results[year] = compute_yearly_revenue(vol, pricing, costs)
+        results[year] = compute_yearly_revenue(vol, pricing, costs, include_float)
     return results

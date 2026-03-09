@@ -39,8 +39,9 @@ def render_cohort_inputs() -> dict:
 
     with c3:
         avg_processing_volume = st.number_input(
-            "Avg Processing Volume ($/deal/yr)", min_value=0.0,
+            "Avg Processing Tier ($/deal)", min_value=0.0,
             value=21_755_556.0, step=100_000.0, format="%.0f",
+            help="Annual processing tier per deal. Volume is derived from real cohort realization rates.",
         )
         cc_pct = st.number_input(
             "CC Volume % of Total", min_value=0.0, max_value=100.0,

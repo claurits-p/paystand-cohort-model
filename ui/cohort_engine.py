@@ -176,7 +176,7 @@ def run_cohort_comparison(
         impl_fee_list=avg_impl_fee,
     )
     std_wp = win_probability(std_pricing)
-    std_yearly = compute_three_year_financials(volumes, std_pricing)
+    std_yearly = compute_three_year_financials(volumes, std_pricing, include_float=False)
     std_deals = int(round(deals_to_pricing * current_win_rate))
 
     standard = _build_cohort_scenario(
@@ -238,7 +238,19 @@ def run_cohort_comparison(
             f"Showing max achievable: +{max_boost:.1%}"
         )
 
-    boosted_yearly = compute_three_year_financials(volumes, boosted_pricing)
+    # Set LTV hold times to config defaults (higher than standard) to earn float
+    ltv_holds = {
+        "hold_days_cc": cfg.HOLD_DAYS_CC_DEFAULT,
+        "hold_days_ach": cfg.HOLD_DAYS_ACH_DEFAULT,
+        "hold_days_bank": cfg.HOLD_DAYS_BANK_DEFAULT,
+    }
+    for k, new_val in ltv_holds.items():
+        old_val = getattr(std_pricing, k)
+        if new_val != old_val:
+            lever_changes[k] = (old_val, new_val)
+            setattr(boosted_pricing, k, new_val)
+
+    boosted_yearly = compute_three_year_financials(volumes, boosted_pricing, include_float=True)
     boosted_deals = int(round(deals_to_pricing * boosted_wp))
 
     boosted = _build_cohort_scenario(
