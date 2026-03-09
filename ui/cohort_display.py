@@ -29,15 +29,18 @@ def render_summary_metrics(
         f"{ltv.deals_won} vs {std.deals_won}",
         delta=f"{deal_delta:+d} deals",
     )
+    rev_pct = rev_delta / std.three_year_revenue * 100 if std.three_year_revenue else 0
+    margin_pct_chg = margin_delta / std.three_year_margin * 100 if std.three_year_margin else 0
+
     cols[1].metric(
         "3-Year Revenue Delta",
         f"${ltv.three_year_revenue:,.0f} vs ${std.three_year_revenue:,.0f}",
-        delta=f"${rev_delta:+,.0f}",
+        delta=f"${rev_delta:+,.0f} ({rev_pct:+.1f}%)",
     )
     cols[2].metric(
         "3-Year Margin Delta",
         f"${ltv.three_year_margin:,.0f} vs ${std.three_year_margin:,.0f}",
-        delta=f"${margin_delta:+,.0f}",
+        delta=f"${margin_delta:+,.0f} ({margin_pct_chg:+.1f}%)",
     )
     cols[3].metric(
         "Margin % Shift",
