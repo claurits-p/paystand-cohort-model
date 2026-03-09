@@ -25,7 +25,7 @@ def render_cohort_inputs() -> dict:
     with c2:
         avg_saas_arr = st.number_input(
             "Avg ACV ($/deal)", min_value=0.0,
-            value=38_000.0, step=1000.0, format="%.0f",
+            value=30_476.0, step=1000.0, format="%.0f",
         )
         avg_impl_fee = st.number_input(
             "Avg Implementation Fee ($/deal)", min_value=0.0,
