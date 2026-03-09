@@ -29,12 +29,12 @@ def render_cohort_inputs() -> dict:
         )
         avg_impl_fee = st.number_input(
             "Avg Implementation Fee ($/deal)", min_value=0.0,
-            value=3_000.0, step=500.0, format="%.0f",
+            value=5_599.0, step=500.0, format="%.0f",
         )
         total_saas_won = st.number_input(
-            "Total SaaS Won ($)", min_value=0.0,
-            value=2_019_942.0, step=10_000.0, format="%.0f",
-            help="Total SaaS ARR across all won deals (for reference)",
+            "Total ARR Won ($)", min_value=0.0,
+            value=1_600_000.0, step=10_000.0, format="%.0f",
+            help="Recurring ARR only (excludes implementation fees). Gets 7% annual escalator.",
         )
 
     with c3:
