@@ -24,15 +24,27 @@ def render_break_even_chart(
     ltv_cum = []
     running_std = 0.0
     running_ltv = 0.0
-    crossover_year = None
 
     for y in years:
         running_std += std.cohort_yearly[y].margin
         running_ltv += ltv.cohort_yearly[y].margin
         std_cum.append(running_std)
         ltv_cum.append(running_ltv)
-        if crossover_year is None and running_ltv >= running_std:
-            crossover_year = y
+
+    crossover_year = None
+    for i in range(len(years)):
+        diff = ltv_cum[i] - std_cum[i]
+        if diff >= 0:
+            if i == 0:
+                crossover_year = float(years[0])
+            else:
+                prev_diff = ltv_cum[i - 1] - std_cum[i - 1]
+                if prev_diff < 0:
+                    frac = -prev_diff / (diff - prev_diff)
+                    crossover_year = years[i - 1] + frac
+                else:
+                    crossover_year = float(years[i])
+            break
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -48,10 +60,14 @@ def render_break_even_chart(
         textposition="top right", textfont=dict(size=11),
     ))
 
-    if crossover_year:
+    if crossover_year is not None:
+        if crossover_year == int(crossover_year):
+            label = f"Break-even: Year {int(crossover_year)}"
+        else:
+            label = f"Break-even: ~Year {crossover_year:.1f}"
         fig.add_vline(
             x=crossover_year, line_dash="dash", line_color="#888",
-            annotation_text=f"Break-even: Year {crossover_year}",
+            annotation_text=label,
             annotation_position="top right",
         )
 
