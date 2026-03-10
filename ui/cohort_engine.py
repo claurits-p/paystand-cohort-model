@@ -9,14 +9,14 @@ multi-lever solver to find pricing adjustments that achieve the
 target win rate increase.
 """
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from models.revenue_model import (
     PricingScenario,
     YearlyRevenue,
     compute_three_year_financials,
 )
-from models.volume_forecast import forecast_volume_y1_y3
+from models.volume_forecast import VolumeForecastYear, forecast_volume_y1_y3
 from models.win_probability import (
     win_probability,
     win_probability_uncapped,
@@ -49,6 +49,7 @@ class CohortScenario:
     win_rate: float
     per_deal_pricing: PricingScenario
     per_deal_yearly: dict[int, YearlyRevenue]
+    per_deal_volumes: dict[int, VolumeForecastYear]
     cohort_yearly: dict[int, CohortYearMetrics]
     three_year_revenue: float
     three_year_margin: float
@@ -109,6 +110,7 @@ def _build_cohort_scenario(
     win_rate: float,
     pricing: PricingScenario,
     per_deal_yearly: dict[int, YearlyRevenue],
+    per_deal_volumes: dict[int, VolumeForecastYear],
     lever_changes: dict | None = None,
     quarterly_churn: float = 0.02,
 ) -> CohortScenario:
@@ -125,6 +127,7 @@ def _build_cohort_scenario(
         win_rate=win_rate,
         per_deal_pricing=pricing,
         per_deal_yearly=per_deal_yearly,
+        per_deal_volumes=per_deal_volumes,
         cohort_yearly=cohort_yearly,
         three_year_revenue=total_rev,
         three_year_margin=total_margin,
@@ -139,10 +142,7 @@ def run_cohort_comparison(
     current_win_rate: float,
     avg_saas_arr: float,
     avg_impl_fee: float,
-    avg_processing_volume: float,
-    cc_pct: float,
-    conv_fee_today: int,
-    conv_fee_with_paystand: int,
+    total_arr_won: float,
     standard_pricing_inputs: dict,
     win_rate_increase: float,
     quarterly_churn: float = 0.02,
@@ -152,12 +152,10 @@ def run_cohort_comparison(
 
     Returns (standard_scenario, boosted_scenario, solver_message).
     """
-    volumes = forecast_volume_y1_y3(
-        processing_tier_volume=avg_processing_volume,
-        expected_cc_volume=avg_processing_volume * cc_pct,
-        conv_fee_today=conv_fee_today,
-        conv_fee_with_paystand=conv_fee_with_paystand,
-    )
+    std_deals = int(round(deals_to_pricing * current_win_rate))
+    per_deal_arr = total_arr_won / std_deals if std_deals > 0 else 0.0
+
+    volumes = forecast_volume_y1_y3(per_deal_arr)
 
     # --- Standard scenario ---
     std_pricing = PricingScenario(
@@ -176,12 +174,11 @@ def run_cohort_comparison(
         impl_fee_list=avg_impl_fee,
     )
     std_wp = win_probability(std_pricing)
-    std_yearly = compute_three_year_financials(volumes, std_pricing, include_float=False)
-    std_deals = int(round(deals_to_pricing * current_win_rate))
+    std_yearly = compute_three_year_financials(volumes, std_pricing, include_float=True)
 
     standard = _build_cohort_scenario(
         "Standard Pricing", std_deals, current_win_rate,
-        std_pricing, std_yearly, quarterly_churn=quarterly_churn,
+        std_pricing, std_yearly, volumes, quarterly_churn=quarterly_churn,
     )
 
     # --- Boosted scenario via solver ---
@@ -228,7 +225,6 @@ def run_cohort_comparison(
                 lever_changes["ach_cap"] = (std_pricing.ach_cap, lb["ach_cap"]["min"])
                 maxed.ach_cap = lb["ach_cap"]["min"]
 
-        from models.win_probability import win_probability_uncapped
         max_wp = win_probability_uncapped(maxed)
         max_boost = max_wp - current_win_rate
         boosted_pricing = maxed
@@ -255,7 +251,7 @@ def run_cohort_comparison(
 
     boosted = _build_cohort_scenario(
         "LTV Optimized", boosted_deals, boosted_wp,
-        boosted_pricing, boosted_yearly, lever_changes,
+        boosted_pricing, boosted_yearly, volumes, lever_changes,
         quarterly_churn=quarterly_churn,
     )
 

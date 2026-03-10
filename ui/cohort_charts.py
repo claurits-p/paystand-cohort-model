@@ -128,13 +128,15 @@ def render_revenue_composition(
             x=x_labels, y=y_vals,
             name=cat, marker_color=colors[i],
             text=texts, textposition="inside",
-            textfont=dict(color="white", size=9),
+            textfont=dict(color="white", size=13),
         ))
 
     fig.update_layout(
-        barmode="stack", yaxis=dict(tickformat="$,.0f"),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=50, b=40), height=450,
+        barmode="stack",
+        yaxis=dict(tickformat="$,.0f", tickfont=dict(size=14)),
+        xaxis=dict(tickfont=dict(size=14)),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=13)),
+        margin=dict(t=50, b=40), height=650,
     )
 
     for x_pos in [1.5, 3.5]:

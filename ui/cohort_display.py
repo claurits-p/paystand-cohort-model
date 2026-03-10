@@ -8,6 +8,60 @@ import streamlit as st
 
 from ui.cohort_engine import CohortScenario
 
+_STD_CLR = "#1B6AC9"
+_LTV_CLR = "#2ECC71"
+
+
+def render_volume_forecast(
+    std: CohortScenario, ltv: CohortScenario,
+) -> None:
+    """Volume forecast tables showing 3-year volumes by payment type for both scenarios."""
+    st.subheader("Volume Forecast")
+
+    def _vol_df(scenario: CohortScenario) -> pd.DataFrame:
+        vols = scenario.per_deal_volumes
+        deals = scenario.deals_won
+        rows = []
+        for y in (1, 2, 3):
+            v = vols[y]
+            rows.append({
+                "Year": f"Year {y}",
+                "Total Volume": f"${v.total * deals:,.0f}",
+                "Card Volume": f"${v.cc * deals:,.0f}",
+                "ACH Volume": f"${v.ach * deals:,.0f}",
+                "Bank Volume": f"${v.bank_network * deals:,.0f}",
+                "Card %": f"{v.cc / v.total:.1%}" if v.total > 0 else "0%",
+            })
+        t = sum(vols[y].total for y in (1, 2, 3)) * deals
+        cc = sum(vols[y].cc for y in (1, 2, 3)) * deals
+        ach = sum(vols[y].ach for y in (1, 2, 3)) * deals
+        bank = sum(vols[y].bank_network for y in (1, 2, 3)) * deals
+        rows.append({
+            "Year": "3-Year Total",
+            "Total Volume": f"${t:,.0f}",
+            "Card Volume": f"${cc:,.0f}",
+            "ACH Volume": f"${ach:,.0f}",
+            "Bank Volume": f"${bank:,.0f}",
+            "Card %": f"{cc / t:.1%}" if t > 0 else "0%",
+        })
+        return pd.DataFrame(rows)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(
+            f'<span style="color:{_STD_CLR};font-weight:600;font-size:1.05rem;">'
+            f'{std.name}</span> ({std.deals_won} deals)',
+            unsafe_allow_html=True,
+        )
+        st.dataframe(_vol_df(std), use_container_width=True, hide_index=True)
+    with col2:
+        st.markdown(
+            f'<span style="color:{_LTV_CLR};font-weight:600;font-size:1.05rem;">'
+            f'{ltv.name}</span> ({ltv.deals_won} deals)',
+            unsafe_allow_html=True,
+        )
+        st.dataframe(_vol_df(ltv), use_container_width=True, hide_index=True)
+
 
 def render_summary_metrics(
     std: CohortScenario, ltv: CohortScenario,
@@ -16,42 +70,71 @@ def render_summary_metrics(
 
     st.subheader("Cohort Impact Summary")
 
+    st.markdown(
+        f'<div style="margin-bottom:8px;font-size:0.85rem;">'
+        f'<span style="display:inline-block;width:12px;height:12px;'
+        f'background:{_LTV_CLR};border-radius:2px;margin-right:4px;vertical-align:middle;"></span>'
+        f'<span style="color:{_LTV_CLR};font-weight:600;vertical-align:middle;">LTV Optimized</span>'
+        f'<span style="margin:0 12px;color:#aaa;vertical-align:middle;">|</span>'
+        f'<span style="display:inline-block;width:12px;height:12px;'
+        f'background:{_STD_CLR};border-radius:2px;margin-right:4px;vertical-align:middle;"></span>'
+        f'<span style="color:{_STD_CLR};font-weight:600;vertical-align:middle;">Standard</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
     deal_delta = ltv.deals_won - std.deals_won
     rev_delta = ltv.three_year_revenue - std.three_year_revenue
     margin_delta = ltv.three_year_margin - std.three_year_margin
     mpct_delta = (ltv.three_year_margin_pct - std.three_year_margin_pct) * 100
-
     tr_delta = (ltv.three_year_take_rate - std.three_year_take_rate) * 100
+    wr_delta = (ltv.win_rate - std.win_rate) * 100
 
-    cols = st.columns(5)
-    cols[0].metric(
-        "Additional Deals Won",
-        f"{ltv.deals_won} vs {std.deals_won}",
-        delta=f"{deal_delta:+d} deals",
-    )
     rev_pct = rev_delta / std.three_year_revenue * 100 if std.three_year_revenue else 0
     margin_pct_chg = margin_delta / std.three_year_margin * 100 if std.three_year_margin else 0
 
-    cols[1].metric(
-        "3-Year Revenue Delta",
-        f"${ltv.three_year_revenue:,.0f} vs ${std.three_year_revenue:,.0f}",
-        delta=f"${rev_delta:+,.0f} ({rev_pct:+.1f}%)",
-    )
-    cols[2].metric(
-        "3-Year Margin Delta",
-        f"${ltv.three_year_margin:,.0f} vs ${std.three_year_margin:,.0f}",
-        delta=f"${margin_delta:+,.0f} ({margin_pct_chg:+.1f}%)",
-    )
-    cols[3].metric(
-        "Margin % Shift",
-        f"{ltv.three_year_margin_pct:.1%} vs {std.three_year_margin_pct:.1%}",
-        delta=f"{mpct_delta:+.1f}pp",
-    )
-    cols[4].metric(
-        "Take Rate Shift",
-        f"{ltv.three_year_take_rate:.2%} vs {std.three_year_take_rate:.2%}",
-        delta=f"{tr_delta:+.2f}pp",
-    )
+    metrics = [
+        ("Win Rate",
+         f"{ltv.win_rate:.0%}", f"{std.win_rate:.0%}",
+         f"{wr_delta:+.0f}pp", wr_delta >= 0),
+        ("Deals Won",
+         str(ltv.deals_won), str(std.deals_won),
+         f"{deal_delta:+d} deals", deal_delta >= 0),
+        ("3-Year Revenue",
+         f"${ltv.three_year_revenue:,.0f}", f"${std.three_year_revenue:,.0f}",
+         f"${rev_delta:+,.0f} ({rev_pct:+.1f}%)", rev_delta >= 0),
+        ("3-Year Margin",
+         f"${ltv.three_year_margin:,.0f}", f"${std.three_year_margin:,.0f}",
+         f"${margin_delta:+,.0f} ({margin_pct_chg:+.1f}%)", margin_delta >= 0),
+        ("Margin %",
+         f"{ltv.three_year_margin_pct:.1%}", f"{std.three_year_margin_pct:.1%}",
+         f"{mpct_delta:+.1f}pp", mpct_delta >= 0),
+        ("Take Rate",
+         f"{ltv.three_year_take_rate:.2%}", f"{std.three_year_take_rate:.2%}",
+         f"{tr_delta:+.2f}pp", tr_delta >= 0),
+    ]
+
+    cols = st.columns(6)
+    for i, (label, ltv_val, std_val, delta_str, is_pos) in enumerate(metrics):
+        delta_bg = "rgba(9,171,59,0.15)" if is_pos else "rgba(255,43,43,0.15)"
+        delta_clr = "#09ab3b" if is_pos else "#ff2b2b"
+        arrow = "▲" if is_pos else "▼"
+        cols[i].markdown(
+            f'<div>'
+            f'<div style="font-size:0.875rem;font-weight:400;color:#808495;'
+            f'padding:0 0 0.3rem 0;">{label}</div>'
+            f'<div style="font-size:2.25rem;font-weight:400;line-height:1.2;'
+            f'padding:0 0 0.4rem 0;">'
+            f'<span style="color:{_LTV_CLR};">{ltv_val}</span>'
+            f' <span style="color:#808495;font-size:1.2rem;">vs</span> '
+            f'<span style="color:{_STD_CLR};">{std_val}</span>'
+            f'</div>'
+            f'<div style="display:inline-block;font-size:0.875rem;color:{delta_clr};'
+            f'background:{delta_bg};padding:2px 8px;border-radius:4px;">'
+            f'{arrow} {delta_str}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
 
 def render_scenario_header(scenario: CohortScenario) -> None:
@@ -113,12 +196,20 @@ def render_side_by_side_tables(
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown(f"**{std.name}** ({std.deals_won} deals)")
+        st.markdown(
+            f'<span style="color:{_STD_CLR};font-weight:600;font-size:1.05rem;">'
+            f'{std.name}</span> ({std.deals_won} deals)',
+            unsafe_allow_html=True,
+        )
         df_std = _yearly_df(std)
         st.dataframe(df_std, use_container_width=True, hide_index=True)
 
     with col2:
-        st.markdown(f"**{ltv.name}** ({ltv.deals_won} deals)")
+        st.markdown(
+            f'<span style="color:{_LTV_CLR};font-weight:600;font-size:1.05rem;">'
+            f'{ltv.name}</span> ({ltv.deals_won} deals)',
+            unsafe_allow_html=True,
+        )
         df_ltv = _yearly_df(ltv)
         st.dataframe(df_ltv, use_container_width=True, hide_index=True)
 

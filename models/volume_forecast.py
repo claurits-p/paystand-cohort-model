@@ -1,37 +1,37 @@
 """
-3-year volume forecast using real cohort realization rates.
+3-year volume forecast using real cohort Vol/MRR and Card Vol/MRR ratios.
 
-Uses quarterly Volume/Tier rates derived from historical cohort data
-(24 cohorts, 2020-2025). Applies convenience fee logic and a gradual
-payment mix transition from the customer's starting CC-heavy mix toward
-the Paystand target of 35% CC / 60% ACH / 5% Bank.
+Monthly ratios are averages across 24 historical cohorts (Q1 2020 – Q4 2025).
+Volume = ratio * per-deal MRR for each month.
+Payment mix: Card % from real data, Bank = 5% flat, ACH = remainder.
 """
 from __future__ import annotations
 from dataclasses import dataclass
 
 import config as cfg
 
+BANK_PCT = 0.05
+YEAR3_CARD_PCT = 0.30
 
-# Average Volume/Tier realization rates by quarters-since-close,
-# derived from historical cohort data (16-23 cohorts per data point).
-QUARTERLY_VT_RATES = [
-    0.003125,  # Q0  - close quarter, barely onboarded
-    0.019391,  # Q1  - ramping
-    0.047682,  # Q2  - accelerating
-    0.066667,  # Q3  - end of Year 1
-    0.074850,  # Q4  - hitting stride
-    0.078263,  # Q5
-    0.082889,  # Q6
-    0.093059,  # Q7  - end of Year 2
-    0.092938,  # Q8  - steady state
-    0.094467,  # Q9
-    0.093071,  # Q10
-    0.088769,  # Q11 - end of Year 3
-]
+# Average Total Volume / MRR by month-since-close (24 cohorts).
+MONTHLY_VOL_MRR = {
+    1: 0.39, 2: 1.79, 3: 14.97, 4: 27.33, 5: 48.75, 6: 73.10,
+    7: 94.77, 8: 116.05, 9: 137.01, 10: 149.22, 11: 160.73, 12: 169.68,
+    13: 174.24, 14: 176.66, 15: 191.01, 16: 183.69, 17: 187.53, 18: 196.78,
+    19: 195.75, 20: 202.44, 21: 208.86, 22: 222.75, 23: 218.00, 24: 233.93,
+    25: 228.37, 26: 228.33, 27: 233.39, 28: 238.29, 29: 235.21, 30: 243.55,
+    31: 229.59, 32: 232.23, 33: 235.11, 34: 211.73, 35: 206.77, 36: 212.82,
+}
 
-STARTING_MIX = {"cc": 0.45, "ach": 0.50, "bank": 0.05}
-TARGET_MIX = {"cc": 0.35, "ach": 0.60, "bank": 0.05}
-MIX_TRANSITION_QUARTERS = 11  # full transition by end of Year 3
+# Average Card Volume / MRR by month-since-close (24 cohorts).
+MONTHLY_CARD_MRR = {
+    1: 0.26, 2: 1.03, 3: 2.95, 4: 9.39, 5: 20.02, 6: 31.39,
+    7: 39.39, 8: 49.30, 9: 56.56, 10: 60.08, 11: 59.33, 12: 68.71,
+    13: 69.78, 14: 70.83, 15: 72.61, 16: 71.97, 17: 72.85, 18: 72.75,
+    19: 73.41, 20: 76.64, 21: 80.57, 22: 82.19, 23: 83.13, 24: 90.29,
+    25: 89.22, 26: 84.37, 27: 86.15, 28: 86.08, 29: 83.73, 30: 82.61,
+    31: 84.44, 32: 82.47, 33: 81.66, 34: 81.10, 35: 83.29, 36: 83.92,
+}
 
 
 @dataclass
@@ -55,94 +55,40 @@ class VolumeForecastYear:
         return int(self.bank_network / cfg.ACH_AVG_TXN_SIZE)
 
 
-def _initial_payment_mix(
-    conv_fee_today: int,
-    conv_fee_with_paystand: int,
-) -> dict[str, float]:
-    """Compute the Q0 payment mix: starts from STARTING_MIX (45/50/5),
-    then applies convenience-fee CC drop.
-
-    Convenience fee CC drop:
-      - Using CF today AND with Paystand -> 20% CC drop
-      - CF only with Paystand (not today) -> 60% CC drop
-      - Dropped CC splits 80% ACH / 20% bank
-    """
-    uses_cf_today = conv_fee_today > 0
-    uses_cf_paystand = conv_fee_with_paystand > 0
-
-    if uses_cf_paystand and uses_cf_today:
-        cc_drop = 0.05
-    elif uses_cf_paystand and not uses_cf_today:
-        cc_drop = 0.10
-    else:
-        cc_drop = 0.0
-
-    cc = STARTING_MIX["cc"] * (1 - cc_drop)
-    dropped = STARTING_MIX["cc"] * cc_drop
-
-    ach = STARTING_MIX["ach"] + dropped * 0.80
-    bank = STARTING_MIX["bank"] + dropped * 0.20
-
-    total = cc + ach + bank
-    return {
-        "cc": cc / total,
-        "ach": ach / total,
-        "bank": bank / total,
-    }
-
-
-def _mix_at_quarter(
-    initial: dict[str, float],
-    quarter: int,
-) -> dict[str, float]:
-    """Blend from initial payment mix toward target over MIX_TRANSITION_QUARTERS."""
-    blend = min(quarter / MIX_TRANSITION_QUARTERS, 1.0)
-    return {
-        k: initial[k] * (1 - blend) + TARGET_MIX[k] * blend
-        for k in ("cc", "ach", "bank")
-    }
-
-
 def forecast_volume_y1_y3(
-    processing_tier_volume: float,
-    expected_cc_volume: float,
-    conv_fee_with_paystand: float,
-    conv_fee_today: float,
+    per_deal_arr: float,
 ) -> dict[int, VolumeForecastYear]:
     """
     Returns {1: VolumeForecastYear, 2: ..., 3: ...}.
 
-    Uses real quarterly V/T realization rates, then splits volume via
-    a payment mix that transitions from the customer's starting mix
-    (CC-heavy, adjusted for convenience fees) toward 35/60/5.
+    Uses real monthly Vol/MRR and Card Vol/MRR ratios from historical cohorts.
+    Card % comes from data, Bank = 5% of total, ACH = remainder.
     """
-    initial_mix = _initial_payment_mix(
-        int(conv_fee_today), int(conv_fee_with_paystand),
-    )
+    per_deal_mrr = per_deal_arr / 12.0
 
     forecast: dict[int, VolumeForecastYear] = {}
 
     for year in (1, 2, 3):
-        q_start = (year - 1) * 4
-        q_end = year * 4
+        m_start = (year - 1) * 12 + 1
+        m_end = year * 12 + 1
 
-        year_cc = 0.0
-        year_ach = 0.0
-        year_bank = 0.0
+        year_total = 0.0
+        year_card = 0.0
 
-        for q in range(q_start, q_end):
-            vt_rate = QUARTERLY_VT_RATES[q] if q < len(QUARTERLY_VT_RATES) else QUARTERLY_VT_RATES[-1]
-            q_volume = processing_tier_volume * vt_rate
-            mix = _mix_at_quarter(initial_mix, q)
+        for m in range(m_start, m_end):
+            year_total += MONTHLY_VOL_MRR.get(m, 0) * per_deal_mrr
+            year_card += MONTHLY_CARD_MRR.get(m, 0) * per_deal_mrr
 
-            year_cc += q_volume * mix["cc"]
-            year_ach += q_volume * mix["ach"]
-            year_bank += q_volume * mix["bank"]
+        if year == 3:
+            year_card = year_total * YEAR3_CARD_PCT
+
+        year_bank = year_total * BANK_PCT
+        year_ach = year_total - year_card - year_bank
 
         forecast[year] = VolumeForecastYear(
             year=year,
-            total=year_cc + year_ach + year_bank,
-            cc=year_cc,
+            total=year_total,
+            cc=year_card,
             ach=year_ach,
             bank_network=year_bank,
         )

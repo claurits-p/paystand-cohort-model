@@ -12,21 +12,49 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown(
+    """<style>
+    /* Bigger text in all dataframe tables */
+    .stDataFrame table,
+    .stDataFrame th,
+    .stDataFrame td,
+    div[data-testid="stDataFrame"] table,
+    div[data-testid="stDataFrame"] th,
+    div[data-testid="stDataFrame"] td,
+    .dvn-scroller table,
+    .dvn-scroller th,
+    .dvn-scroller td,
+    [data-testid="glideDataEditor"] * {
+        font-size: 1.15rem !important;
+    }
+    /* Paystand blue primary button */
+    .stButton > button[kind="primary"],
+    .stButton > button[data-testid="baseButton-primary"] {
+        background-color: #003B91 !important;
+        border-color: #003B91 !important;
+    }
+    .stButton > button[kind="primary"]:hover,
+    .stButton > button[data-testid="baseButton-primary"]:hover {
+        background-color: #002D6F !important;
+        border-color: #002D6F !important;
+    }
+    </style>""",
+    unsafe_allow_html=True,
+)
+
 from ui.cohort_inputs import render_cohort_inputs, render_standard_pricing
 from ui.cohort_engine import run_cohort_comparison
 from ui.cohort_display import (
+    render_volume_forecast,
     render_summary_metrics,
     render_scenario_header,
     render_side_by_side_tables,
     render_delta_table,
     render_pricing_comparison,
-    render_per_deal_comparison,
 )
 from ui.cohort_charts import (
     render_break_even_chart,
-    render_margin_bars,
     render_revenue_composition,
-    render_metric_comparison_bars,
     render_insight_callouts,
 )
 
@@ -37,7 +65,7 @@ def main():
         st.image("paystand_logo.png", width=55)
     with title_col:
         st.markdown(
-            '<h1 style="color: #1B2A4A; margin-top: -5px;">'
+            '<h1 style="color: #003B91; margin-top: -5px;">'
             "Paystand Cohort Pricing Impact Model</h1>",
             unsafe_allow_html=True,
         )
@@ -52,10 +80,7 @@ def main():
                 current_win_rate=cohort["current_win_rate"],
                 avg_saas_arr=cohort["avg_saas_arr"],
                 avg_impl_fee=cohort["avg_impl_fee"],
-                avg_processing_volume=cohort["avg_processing_volume"],
-                cc_pct=cohort["cc_pct"],
-                conv_fee_today=cohort["conv_fee_today"],
-                conv_fee_with_paystand=cohort["conv_fee_with_paystand"],
+                total_arr_won=cohort["total_arr_won"],
                 standard_pricing_inputs=std_pricing,
                 win_rate_increase=cohort["win_rate_increase"],
                 quarterly_churn=cohort["quarterly_churn"],
@@ -90,28 +115,22 @@ def main():
             )
 
         st.divider()
+        render_volume_forecast(standard, ltv)
+
+        st.divider()
+        render_pricing_comparison(standard, ltv)
+
+        st.divider()
         render_insight_callouts(standard, ltv)
 
         st.divider()
         render_summary_metrics(standard, ltv)
 
         st.divider()
-        render_metric_comparison_bars(standard, ltv)
-
-        st.divider()
         render_break_even_chart(standard, ltv)
 
         st.divider()
-        render_margin_bars(standard, ltv)
-
-        st.divider()
         render_revenue_composition(standard, ltv)
-
-        st.divider()
-        render_pricing_comparison(standard, ltv)
-
-        st.divider()
-        render_per_deal_comparison(standard, ltv)
 
         st.divider()
         render_side_by_side_tables(standard, ltv)

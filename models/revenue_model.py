@@ -74,15 +74,15 @@ def _ach_revenue_for_volume(
     return volume * pricing.ach_pct_rate
 
 
+DISCOUNT_RECOVERY_PCT = 0.75
+
 def _saas_arr_for_year(pricing: PricingScenario, year: int) -> float:
-    """SaaS ARR: discount applies Year 1 only (or all years if persistent), 7% escalator."""
-    if pricing.saas_discount_persists:
-        discounted = pricing.saas_arr_list * (1 - pricing.saas_arr_discount_pct)
-        return discounted * (cfg.SAAS_ANNUAL_ESCALATOR + 1) ** (year - 1)
+    """SaaS ARR: full discount in Y1, 50% of discount persists in Y2-Y3, plus 7% escalator."""
     base = pricing.saas_arr_list * (cfg.SAAS_ANNUAL_ESCALATOR + 1) ** (year - 1)
     if year == 1:
         return base * (1 - pricing.saas_arr_discount_pct)
-    return base
+    retained_discount = pricing.saas_arr_discount_pct * (1 - DISCOUNT_RECOVERY_PCT)
+    return base * (1 - retained_discount)
 
 
 def _cc_blended_rate_for_year(pricing: PricingScenario, year: int) -> float:

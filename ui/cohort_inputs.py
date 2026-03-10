@@ -24,39 +24,21 @@ def render_cohort_inputs() -> dict:
 
     with c2:
         avg_saas_arr = st.number_input(
-            "Avg ACV ($/deal)", min_value=0.0,
+            "Avg ARR / Deal (Pre-Discount)", min_value=0.0,
             value=30_476.0, step=1000.0, format="%.0f",
         )
         avg_impl_fee = st.number_input(
             "Avg Implementation Fee ($/deal)", min_value=0.0,
             value=5_599.0, step=500.0, format="%.0f",
         )
-        total_saas_won = st.number_input(
-            "Total ARR Won ($)", min_value=0.0,
-            value=1_600_000.0, step=10_000.0, format="%.0f",
-            help="Recurring ARR only (excludes implementation fees). Gets 7% annual escalator.",
-        )
 
     with c3:
-        avg_processing_volume = st.number_input(
-            "Avg Processing Tier ($/deal)", min_value=0.0,
-            value=21_755_556.0, step=100_000.0, format="%.0f",
-            help="Annual processing tier per deal. Volume is derived from real cohort realization rates.",
+        total_arr_won = st.number_input(
+            "Total ARR Won ($)", min_value=0.0,
+            value=1_654_046.0, step=10_000.0, format="%.0f",
+            help="Recurring ARR only (excludes implementation fees). "
+                 "Used for volume forecast via historical Vol/MRR ratios.",
         )
-        cc_pct = st.number_input(
-            "CC Volume % of Total", min_value=0.0, max_value=100.0,
-            value=40.0, step=5.0, format="%.0f",
-        ) / 100
-        conv_fee_today = st.selectbox(
-            "Convenience Fees Today?",
-            options=[("No", 0), ("Yes", 1)],
-            format_func=lambda x: x[0], index=0,
-        )[1]
-        conv_fee_with_paystand = st.selectbox(
-            "Convenience Fees with Paystand?",
-            options=[("No", 0), ("Yes", 1)],
-            format_func=lambda x: x[0], index=1,
-        )[1]
 
     st.subheader("Win Rate & Churn")
     w1, w2 = st.columns(2)
@@ -83,11 +65,7 @@ def render_cohort_inputs() -> dict:
         "current_win_rate": current_win_rate,
         "avg_saas_arr": avg_saas_arr,
         "avg_impl_fee": avg_impl_fee,
-        "total_saas_won": total_saas_won,
-        "avg_processing_volume": avg_processing_volume,
-        "cc_pct": cc_pct,
-        "conv_fee_today": conv_fee_today,
-        "conv_fee_with_paystand": conv_fee_with_paystand,
+        "total_arr_won": total_arr_won,
         "win_rate_increase": win_rate_increase,
         "quarterly_churn": quarterly_churn,
     }
